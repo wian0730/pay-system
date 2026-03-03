@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>團費點點收 v5.0 (同步強化版)</title>
+    <style>
+        :root {
+            --primary-color: #007bff; --success-color: #28a745; --danger-color: #dc3545;
+            --bg-color: #f0f2f5; --card-bg: #ffffff; --text-color: #333;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Microsoft JhengHei", sans-serif;
+            background-color: var(--bg-color); margin: 0; padding: 0; color: var(--text-color);
+        }
+
+        /* --- 頂部導覽 --- */
+        .top-nav {
+            background: white; display: flex; box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            position: sticky; top: 0; z-index: 100;
+        }
+
+        .nav-item {
+            flex: 1; padding: 15px 0; text-align: center; font-size: 1rem; color: #666;
+            cursor: pointer; border-bottom: 3px solid transparent; transition: all 0.2s;
+            font-weight: bold; display: flex; align-items: center; justify-content: center; gap: 8px;
+        }
+
+        .nav-item.active { color: var(--primary-color); border-bottom-color: var(--primary-color); background-color: #f8faff; }
+
+        /* --- 內容 --- */
+        .container { padding: 20px 15px; max-width: 600px; margin: 0 auto; }
+        .page { display: none; }
+        .page.active { display: block; animation: fadeIn 0.3s; }
+
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+
+        /* --- 收款頁面 --- */
+        .header-card {
+            background: var(--card-bg); border-radius: 12px; padding: 20px;
+            text-align: center; box-shadow: 0 2px 10px rgba(0,0,0,0.05); margin-bottom: 20px;
+        }
+
+        .date-display { 
+            font-size: 1.1rem; font-weight: bold; color: #444; margin-bottom: 10px; 
+            background: #f8f9fa; display: inline-block; padding: 5px 15px; border-radius: 20px;
+        }
+        
+        .amount-display { 
+            font-size: 2.2rem; font-weight: 800; color: var(--primary-color); 
+            display: flex; align-items: baseline; justify-content: center; gap: 5px;
+        }
+
+        .stats-bar { background: #e9ecef; height: 10px; border-radius: 5px; margin-top: 15px; overflow: hidden; }
+        .stats-fill { height: 100%; background: var(--success-color); width: 0%; transition: width 0.3s ease; }
+        .stats-text { font-size: 0.85rem; color: #888; margin-top: 5px; }
+
+        .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(90px, 1fr)); gap: 12px; }
+
+        .member-card {
+            background: #fff; border: 2px solid #ddd; border-radius: 10px;
+            padding: 15px 5px; text-align: center; font-weight: bold; font-size: 1.1rem;
+            cursor: pointer; color: #555; transition: all 0.2s; position: relative;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05); user-select: none;
+        }
+
+        .member-card.paid { background: var(--success-color); color: white; border-color: var(--success-color); transform: scale(0.98); }
+        .member-card.paid::after { content: "OK"; position: absolute; top: 2px; right: 5px; font-size: 0.7rem; opacity: 0.8; }
+
+        /* --- 後台頁面 --- */
+        .admin-section {
+            background: white; padding: 20px; border-radius: 12px;
+            margin-bottom: 15px; box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+        }
+
+        label { display: block; margin-bottom: 8px; font-weight: bold; color: #333; }
+        input[type="number"], input[type="date"], textarea {
+            width: 100%; padding: 12px; border: 1px solid #ccc;
+            border-radius: 8px; box-sizing: border-box; font-size: 1rem;
+        }
+        textarea { height: 120px; font-family: monospace; }
+        button { border: none; border-radius: 8px; font-weight: bold; cursor: pointer; transition: 0.2s; }
+        button:active { transform: scale(0.98); }
+        .btn-save { width: 100%; padding: 12px; background: var(--primary-color); color: white; margin-top: 10px; }
+        .btn-danger { width: 100%; padding: 12px; background: var(--danger-color); color: white; margin-top: 10px; }
+        .btn-sync { width: 100%; padding: 12px; background: #6c757d; color: white; margin-top: 10px; }
+
+        /* 計算機 */
+        .calc-row { display: flex; align-items: center; gap: 5px; margin-bottom: 10px; background: #f8f9fa; padding: 10px; border-radius: 8px; }
+        .calc-group { display: flex; align-items: center; width: 100%; justify-content: space-between; }
+        .calc-input { width: 65px !important; padding: 8px !important; text-align: center; font-size: 1rem !important; }
+        .calc-result { font-weight: bold; font-size: 1.1rem; color: #333; }
+        .balance-box { border-top: 2px dashed #ddd; padding-top: 10px; text-align: right; font-weight: bold; }
+    </style>
+</head>
+<body>
+
+    <div class="top-nav">
+        <div class="nav-item active" onclick="switchTab('collection')">📋 收款模式</div>
+        <div class="nav-item" onclick="switchTab('admin')">⚙️ 後台管理</div>
+    </div>
+
+    <div id="view-collection" class="page active">
+        <div class="container">
+            <div class="header-card">
+                <div class="date-display" id="displayDate"></div>
+                <div class="amount-display"><span style="font-size:1rem; color:#666">每人</span> NT$ <span id="displayAmount">0</span></div>
+                <div class="stats-bar"><div class="stats-fill" id="progressBar"></div></div>
+                <div class="stats-text">已收: <span id="paidCount">0</span> / 共 <span id="totalCount">0</span> 人</div>
+            </div>
+            <div class="grid" id="memberGrid"></div>
+        </div>
+    </div>
+
+    <div id="view-admin" class="page">
+        <div class="container">
+            <div class="admin-section">
+                <h3 style="margin:0 0 10px 0">🧮 成本/收支試算</h3>
+                <div class="calc-row">
+                    <div class="calc-group">
+                        <input type="number" id="calcPeople" class="calc-input" oninput="calculateCost()">
+                        <span>✕</span>
+                        <input type="number" id="calcFee" class="calc-input" oninput="calculateCost()">
+                        <span>＝</span>
+                        <span id="totalIncome" class="calc-result" style="color:var(--primary-color)">0</span>
+                    </div>
+                </div>
+                <div class="calc-row">
+                    <div class="calc-group">
+                        <input type="number" id="calcBalls" class="calc-input" oninput="calculateCost()" placeholder="球數">
+                        <span>✕</span>
+                        <input type="number" id="calcBallCost" class="calc-input" oninput="calculateCost()" placeholder="單價">
+                        <span>＝</span>
+                        <span id="totalExpense" class="calc-result" style="color:var(--danger-color)">0</span>
+                    </div>
+                </div>
+                <div class="balance-box">結餘： <span id="netBalance">0</span></div>
+            </div>
+
+            <div class="admin-section">
+                <label>📅 設定收款日期</label>
+                <input type="date" id="inputDate" onchange="saveBasicSettings()">
+                <label style="margin-top:10px">💰 應收金額</label>
+                <input type="number" id="inputAmount" onchange="saveBasicSettings()">
+            </div>
+
+            <div class="admin-section">
+                <label>📝 編輯名單 (一名字一行)</label>
+                <textarea id="inputList"></textarea>
+                <button class="btn-save" onclick="updateMembers()">💾 儲存名單更新</button>
+            </div>
+
+            <div class="admin-section">
+                <label>📲 跨裝置同步 (複製此代碼到另一裝置)</label>
+                <textarea id="syncDataText" style="height:60px; font-size:0.8rem; background:#f0f0f0" readonly onclick="this.select()"></textarea>
+                <button class="btn-sync" onclick="importData()">📥 導入另一台裝置的代碼</button>
+                <button class="btn-danger" style="background:#888" onclick="location.reload()">🔄 強制刷新系統</button>
+            </div>
+
+            <div class="admin-section" style="border: 1px dashed red">
+                <button class="btn-danger" onclick="resetAllStatus()">🔄 清除今日所有勾選紀錄</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- 核心變數讀取 ---
+        function loadData() {
+            window.members = JSON.parse(localStorage.getItem('members')) || ["範例甲", "範例乙"];
+            window.paidData = JSON.parse(localStorage.getItem('paidData')) || {};
+            window.amount = localStorage.getItem('amount') || 1000;
+            window.targetDate = localStorage.getItem('targetDate') || new Date().toISOString().split('T')[0];
+            window.calcData = JSON.parse(localStorage.getItem('calcData')) || {};
+        }
+
+        // --- 核心渲染 ---
+        function render() {
+            loadData();
+            document.getElementById('displayDate').innerText = new Date(window.targetDate).toLocaleDateString('zh-TW', {year:'numeric', month:'long', day:'numeric'});
+            document.getElementById('displayAmount').innerText = window.amount;
+            
+            const grid = document.getElementById('memberGrid');
+            grid.innerHTML = '';
+            let paidCount = 0;
+
+            window.members.forEach(name => {
+                const div = document.createElement('div');
+                div.className = 'member-card' + (window.paidData[name] ? ' paid' : '');
+                div.innerText = name;
+                div.onclick = () => togglePay(name);
+                grid.appendChild(div);
+                if (window.paidData[name]) paidCount++;
+            });
+
+            document.getElementById('paidCount').innerText = paidCount;
+            document.getElementById('totalCount').innerText = window.members.length;
+            document.getElementById('progressBar').style.width = (window.members.length > 0 ? (paidCount / window.members.length) * 100 : 0) + "%";
+
+            // 更新同步碼
+            updateSyncCode();
+        }
+
+        // --- 互動功能 ---
+        function togglePay(name) {
+            window.paidData[name] = !window.paidData[name];
+            localStorage.setItem('paidData', JSON.stringify(window.paidData));
+            render();
+        }
+
+        function saveBasicSettings() {
+            localStorage.setItem('amount', document.getElementById('inputAmount').value);
+            localStorage.setItem('targetDate', document.getElementById('inputDate').value);
+            render();
+        }
+
+        function updateMembers() {
+            const raw = document.getElementById('inputList').value;
+            const newMembers = raw.split('\n').map(n => n.trim()).filter(n => n);
+            if(newMembers.length === 0) return alert("名單不能為空");
+            localStorage.setItem('members', JSON.stringify(newMembers));
+            render();
+            alert("名單已同步至系統！");
+        }
+
+        function calculateCost() {
+            const p = parseFloat(document.getElementById('calcPeople').value) || 0;
+            const f = parseFloat(document.getElementById('calcFee').value) || 0;
+            const b = parseFloat(document.getElementById('calcBalls').value) || 0;
+            const bc = parseFloat(document.getElementById('calcBallCost').value) || 0;
+            
+            const inc = p * f; const exp = b * bc; const bal = inc - exp;
+            
+            document.getElementById('totalIncome').innerText = inc;
+            document.getElementById('totalExpense').innerText = exp;
+            const balEl = document.getElementById('netBalance');
+            balEl.innerText = (bal >= 0 ? "+ " : "") + bal;
+            balEl.style.color = bal >= 0 ? "var(--success-color)" : "var(--danger-color)";
+
+            localStorage.setItem('calcData', JSON.stringify({people:p, fee:f, balls:b, ballCost:bc}));
+        }
+
+        // --- 同步黑科技 ---
+        // 1. 監聽其他分頁的存檔動作
+        window.addEventListener('storage', (e) => {
+            render(); // 只要 LocalStorage 有變，立即重畫
+        });
+
+        // 2. 更新同步碼
+        function updateSyncCode() {
+            const fullData = {
+                members: window.members,
+                amount: window.amount,
+                targetDate: window.targetDate,
+                calcData: window.calcData
+            };
+            document.getElementById('syncDataText').value = btoa(unescape(encodeURIComponent(JSON.stringify(fullData))));
+        }
+
+        // 3. 導入同步碼
+        function importData() {
+            const code = prompt("請貼入另一台裝置生成的代碼：");
+            if (code) {
+                try {
+                    const data = JSON.parse(decodeURIComponent(escape(atob(code))));
+                    localStorage.setItem('members', JSON.stringify(data.members));
+                    localStorage.setItem('amount', data.amount);
+                    localStorage.setItem('targetDate', data.targetDate);
+                    localStorage.setItem('calcData', JSON.stringify(data.calcData));
+                    location.reload(); // 導入後強制刷新
+                } catch(e) { alert("代碼格式錯誤！"); }
+            }
+        }
+
+        function resetAllStatus() {
+            if(confirm("確定清除勾選？")) {
+                localStorage.setItem('paidData', JSON.stringify({}));
+                render();
+            }
+        }
+
+        function switchTab(t) {
+            document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+            document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+            if(t === 'collection') {
+                document.getElementById('view-collection').classList.add('active');
+                document.querySelectorAll('.nav-item')[0].classList.add('active');
+            } else {
+                document.getElementById('view-admin').classList.add('active');
+                document.querySelectorAll('.nav-item')[1].classList.add('active');
+            }
+        }
+
+        // 初始化
+        loadData();
+        document.getElementById('inputDate').value = window.targetDate;
+        document.getElementById('inputAmount').value = window.amount;
+        document.getElementById('inputList').value = window.members.join('\n');
+        document.getElementById('calcPeople').value = window.calcData.people || window.members.length;
+        document.getElementById('calcFee').value = window.calcData.fee || window.amount;
+        document.getElementById('calcBalls').value = window.calcData.balls || '';
+        document.getElementById('calcBallCost').value = window.calcData.ballCost || '';
+        calculateCost();
+        render();
+
+    </script>
+</body>
+</html>
